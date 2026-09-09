@@ -207,17 +207,14 @@ proxy-groups:
 # 规则
 rules:
   - DST-PORT,53,DNS劫持
-
   - PROCESS-NAME,com.vivo.email,💌Email
   - SUB-RULE,(OR,((NETWORK,UDP),(NETWORK,TCP))),SUB-RULES
-  - MATCH,🐱主代理
   - DOMAIN-SUFFIX,perfectlife.club,🌸PCL
   - DOMAIN-SUFFIX,perfectlife.cc,🌸PCL
   - DOMAIN,mtalk.google.com,DIRECT
   - DOMAIN,mtalk4.google.com,DIRECT
   - DOMAIN,mtalk-staging.google.com,DIRECT
   - DOMAIN,mtalk-dev.google.com,DIRECT
-  - DOMAIN,alt1-mtalk.google.com,DIRECT
   - DOMAIN,alt1-mtalk.google.com,DIRECT
   - DOMAIN,alt2-mtalk.google.com,DIRECT
   - DOMAIN,alt3-mtalk.google.com,DIRECT
@@ -226,9 +223,10 @@ rules:
   - DOMAIN,alt6-mtalk.google.com,DIRECT
   - DOMAIN,alt7-mtalk.google.com,DIRECT
   - DOMAIN,alt8-mtalk.google.com,DIRECT
+  - MATCH,🐱主代理
 sub-rules:
   SUB-RULES:
-    # ① FCM 推送
+    # FCM 推送
     - "RULE-SET,googlefcm_domain,🔔FCM"
     - "RULE-SET,googlefcm_ip,🔔FCM,no-resolve"
     - "DOMAIN-SUFFIX,mtalk.google.com,🔔FCM"
@@ -243,7 +241,60 @@ sub-rules:
     - "DOMAIN-SUFFIX,alt6-mtalk.google.com,🔔FCM"
     - "DOMAIN-SUFFIX,alt7-mtalk.google.com,🔔FCM"
     - "DOMAIN-SUFFIX,alt8-mtalk.google.com,🔔FCM"
-    # ② Google 相关服务
+
+    # 广告拦截
+    - RULE-SET,category-ads-all_domain,REJECT
+
+    # 广告 / 统计 / 用户行为追踪补充
+    - DOMAIN-SUFFIX,adtrafficquality.google,REJECT
+    - DOMAIN-SUFFIX,google-analytics.com,REJECT
+    - DOMAIN-SUFFIX,googletagmanager.com,REJECT
+    - DOMAIN-SUFFIX,yadro.ru,REJECT
+    - DOMAIN-SUFFIX,doubleclick.net,REJECT
+    - DOMAIN-SUFFIX,googlesyndication.com,REJECT
+    - DOMAIN-SUFFIX,googleadservices.com,REJECT
+    - DOMAIN-SUFFIX,googletagservices.com,REJECT
+    - DOMAIN-SUFFIX,adnxs.com,REJECT
+    - DOMAIN-SUFFIX,adsrvr.org,REJECT
+    - DOMAIN-SUFFIX,taboola.com,REJECT
+    - DOMAIN-SUFFIX,outbrain.com,REJECT
+    - DOMAIN-SUFFIX,adform.net,REJECT
+    - DOMAIN-SUFFIX,criteo.com,REJECT
+    - DOMAIN-SUFFIX,criteo.net,REJECT
+    - DOMAIN-SUFFIX,openx.net,REJECT
+    - DOMAIN-SUFFIX,pubmatic.com,REJECT
+    - DOMAIN-SUFFIX,rubiconproject.com,REJECT
+    - DOMAIN-SUFFIX,smartadserver.com,REJECT
+    - DOMAIN-SUFFIX,33across.com,REJECT
+    - DOMAIN-SUFFIX,sharethrough.com,REJECT
+    - DOMAIN-SUFFIX,media.net,REJECT
+    - DOMAIN-SUFFIX,mouseflow.com,REJECT
+    - DOMAIN-SUFFIX,luckyorange.com,REJECT
+    - DOMAIN-SUFFIX,hotjar.com,REJECT
+    - DOMAIN-SUFFIX,bugsnag.com,REJECT
+    - DOMAIN-SUFFIX,amazon-adsystem.com,REJECT
+    - DOMAIN-SUFFIX,amazonadvertising.com,REJECT
+    - DOMAIN-SUFFIX,advertising.com,REJECT
+    - DOMAIN-SUFFIX,pinterestadservices.com,REJECT
+    - DOMAIN-SUFFIX,yadro.ru,REJECT
+    - DOMAIN-SUFFIX,advice-ads.s3.amazonaws.com,REJECT
+    - DOMAIN-SUFFIX,analyticsengine.s3.amazonaws.com,REJECT
+    - DOMAIN-SUFFIX,adtago.s3.amazonaws.com,REJECT
+    - DOMAIN-SUFFIX,analytics.s3.amazonaws.com,REJECT
+    - DOMAIN-SUFFIX,ad.doubleclick.net,REJECT
+    - DOMAIN-SUFFIX,ads-api.tiktok.com,REJECT
+    
+    # HTTPDNS 拦截
+    - OR,((RULE-SET,blockhttpdns_domain),(RULE-SET,blockhttpdns_ip,no-resolve)),🧯HttpDNS
+
+    # 泄漏拦截
+    - OR,((AND,((NETWORK,TCP),(DST-PORT,5349))),(AND,((NETWORK,UDP),(DST-PORT,5350-5351))),(AND,((NETWORK,UDP),(DST-PORT,19302-19305))),(AND,((NETWORK,UDP),(DST-PORT,19308-19309))),(RULE-SET,stun_domain),(DST-PORT,3478)),🩹泄漏拦截
+    - DOMAIN-KEYWORD,stun,🩹泄漏拦截
+
+    # Email 域名
+    - "OR,((DOMAIN-KEYWORD,gmail),(DOMAIN-KEYWORD,outlook),(DOMAIN-KEYWORD,office365),(DOMAIN-SUFFIX,proton.me),(DOMAIN-SUFFIX,protonmail.com),(DOMAIN-SUFFIX,icloud.com),(DOMAIN-SUFFIX,me.com),(DOMAIN-SUFFIX,mac.com),(DOMAIN-KEYWORD,yahoo),(DOMAIN-SUFFIX,aol.com),(DOMAIN-SUFFIX,hotmail.com),(DOMAIN-SUFFIX,live.com),(DOMAIN-SUFFIX,msn.com),(DOMAIN-SUFFIX,gmx.com),(DOMAIN-SUFFIX,gmx.net),(DOMAIN-SUFFIX,web.de),(DOMAIN-SUFFIX,mail.com),(DOMAIN-SUFFIX,mail.ru),(DOMAIN-SUFFIX,yandex.com),(DOMAIN-SUFFIX,yandex.ru),(DOMAIN-SUFFIX,zoho.com),(DOMAIN-SUFFIX,fastmail.com),(DOMAIN-SUFFIX,tuta.com),(DOMAIN-SUFFIX,tutanota.com)),💌Email"
+
+    # Google 相关服务
     - "RULE-SET,google_domain,🌈Google"
     - "DOMAIN-SUFFIX,googleapis.cn,🌐全球直连"
     - "DOMAIN-SUFFIX,gstatic.com,🌈Google"
@@ -251,13 +302,6 @@ sub-rules:
     - "DOMAIN-KEYWORD,google,🌈Google"
     - "RULE-SET,google_ip,🌈Google,no-resolve"
 
-    # ③ Email 域名
-    - "OR,((DOMAIN-KEYWORD,gmail),(DOMAIN-KEYWORD,outlook),(DOMAIN-KEYWORD,office365),(DOMAIN-SUFFIX,proton.me),(DOMAIN-SUFFIX,protonmail.com),(DOMAIN-SUFFIX,icloud.com),(DOMAIN-SUFFIX,me.com),(DOMAIN-SUFFIX,mac.com),(DOMAIN-KEYWORD,yahoo),(DOMAIN-SUFFIX,aol.com),(DOMAIN-SUFFIX,hotmail.com),(DOMAIN-SUFFIX,live.com),(DOMAIN-SUFFIX,msn.com),(DOMAIN-SUFFIX,gmx.com),(DOMAIN-SUFFIX,gmx.net),(DOMAIN-SUFFIX,web.de),(DOMAIN-SUFFIX,mail.com),(DOMAIN-SUFFIX,mail.ru),(DOMAIN-SUFFIX,yandex.com),(DOMAIN-SUFFIX,yandex.ru),(DOMAIN-SUFFIX,zoho.com),(DOMAIN-SUFFIX,fastmail.com),(DOMAIN-SUFFIX,tuta.com),(DOMAIN-SUFFIX,tutanota.com)),💌Email"
-    # 国际常见广告
-    - RULE-SET,category-ads-all_domain,🧹广告拦截
-    - OR,((RULE-SET,blockhttpdns_domain),(RULE-SET,blockhttpdns_ip,no-resolve)),🧯HttpDNS
-    - OR,((AND,((NETWORK,TCP),(DST-PORT,5349))),(AND,((NETWORK,UDP),(DST-PORT,5350-5351))),(AND,((NETWORK,UDP),(DST-PORT,19302-19305))),(AND,((NETWORK,UDP),(DST-PORT,19308-19309))),(RULE-SET,stun_domain),(DST-PORT,3478)),🩹泄漏拦截
-    - DOMAIN-KEYWORD,stun,🩹泄漏拦截
     # 国际服务（域名）
     - RULE-SET,youtube_domain,▶️YouTube
     - RULE-SET,spotify_domain,♬Spotify
