@@ -1,0 +1,415 @@
+# mihomo 精简配置
+
+# 锚点
+proxy: &proxy { type: select, include-all: true, exclude-type: dns, exclude-filter: "剩余|流量|到期|套餐|官网|推广|重置|订阅|小时|建议|机场|Traffic|Expired", proxies: [🐱主代理, 🌐全球直连] }
+direct: &direct { type: select, include-all: true, exclude-type: dns, exclude-filter: "剩余|流量|到期|套餐|官网|推广|重置|订阅|小时|建议|机场|Traffic|Expired", proxies: [🌐全球直连, 🐱主代理] }
+ipcidr_mrs: &ipcidr_mrs { type: http, interval: 432000, behavior: ipcidr, format: mrs, proxy: 🌐全球直连 } # 5 天更新
+domain_mrs: &domain_mrs { type: http, interval: 432000, behavior: domain, format: mrs, proxy: 🌐全球直连 } # 5 天更新
+
+p: &p
+  type: http
+  size-limit: 0
+  header:
+    User-Agent:
+      - meta;clash.meta;Clash/v1.18.0;clash
+  health-check:
+    enable: true
+    url: https://www.gstatic.com/generate_204
+    timeout: 5000
+    lazy: true
+# 节点统一覆写：关闭额外 TCP 特性，降低 Android 功耗并保持兼容性
+override: &override
+  tfo: false
+  mptcp: false
+  udp: true
+  udp-over-tcp: false
+  skip-cert-verify: true
+  ip-version: dual
+
+# ---------------- 订阅 ----------------
+proxy-providers:
+  provider1:
+    <<: *p
+    url: 订阅链接1
+    path: ./proxies/provider1.yaml
+    override:
+      <<: *override
+      additional-suffix: ' 机场名字'
+
+#  provider2:
+#    <<: *p
+#    url: 订阅链接2
+#    path: ./proxies/provider2.yaml
+#    override:
+#      <<: *override
+#      additional-suffix: ' 机场名字'
+#想要provider2生效，就把#删除 跟provider1一样
+#要添加多个订阅直接复制provider2或者1，把数字改成3/4/5/6/7，path里面的数字也要更改，确保一致
+
+# 基础设置
+mixed-port: 7890
+allow-lan: false
+mode: rule
+log-level: warning
+ipv6: true
+unified-delay: true
+tcp-concurrent: true
+etag-support: true
+find-process-mode: strict # PROCESS-NAME 根据包名分流所需
+
+geodata-mode: false # 未使用 GEOIP/GEOSITE 轻量化
+geodata-loader: memconservative
+geo-auto-update: false
+
+# FCM 推送长连接保障
+disable-keep-alive: false
+keep-alive-idle: 420 # 小于 GMS 心跳上限 590s
+keep-alive-interval: 50
+
+# DoH 服务器固定解析
+hosts:
+  dns.alidns.com:
+    - 223.5.5.5
+    - 223.6.6.6
+  dns.google:
+    - 8.8.4.4
+    - 8.8.8.8
+
+profile:
+  store-selected: true
+  store-fake-ip: true
+
+dns:
+  enable: true
+  cache-algorithm: arc
+  prefer-h3: true
+  use-hosts: true
+  respect-rules: false
+  ipv6: true
+  default-nameserver:
+    - 223.5.5.5
+    - 223.6.6.6
+  enhanced-mode: fake-ip
+  fake-ip-range: 198.18.0.1/16
+  fake-ip-filter: # 真实解析白名单
+    - "+.lan"
+    - "+.local"
+    - "+.localdomain"
+    - "+.home.arpa"
+    - "+.localhost"
+    - "mtalk.google.com"
+    - "mtalk4.google.com"
+    - "mtalk-staging.google.com"
+    - "mtalk-dev.google.com"
+    - "alt1-mtalk.google.com"
+    - "alt2-mtalk.google.com"
+    - "alt3-mtalk.google.com"
+    - "alt4-mtalk.google.com"
+    - "alt5-mtalk.google.com"
+    - "alt6-mtalk.google.com"
+    - "alt7-mtalk.google.com"
+    - "alt8-mtalk.google.com"
+
+  nameserver-policy:
+    "RULE-SET:private_domain,cn_domain":
+      - "https://dns.alidns.com/dns-query#🌐全球直连"
+      - "https://doh.pub/dns-query#🌐全球直连"
+    "DOMAIN-SUFFIX:cc":
+      - "https://dns.alidns.com/dns-query#🌐全球直连"
+      - "https://doh.pub/dns-query#🌐全球直连"
+    "geosite:googlefcm":
+      - "https://dns.google/dns-query#🐱主代理"
+    "geosite:google":
+      - "https://dns.google/dns-query#🐱主代理"
+
+  nameserver:
+    - "https://dns.alidns.com/dns-query#🌐全球直连"
+    - "https://doh.pub/dns-query#🌐全球直连"
+
+  proxy-server-nameserver:
+    - "https://dns.alidns.com/dns-query#🌐全球直连"
+
+  direct-nameserver:
+    - "https://dns.alidns.com/dns-query#🌐全球直连"
+    - "https://doh.pub/dns-query#🌐全球直连"
+
+# TUN
+tun:
+  enable: true
+  stack: system # 省内存省 CPU
+  auto-route: true
+  auto-detect-interface: true
+  strict-route: true # Android TUN 防止 DNS/流量绕过
+  mtu: 1400
+  dns-hijack:
+    - any:53
+    - tcp://any:53
+  udp-timeout: 300 # 兼顾 FCM/UDP 稳定与功耗
+
+# 嗅探
+sniffer:
+  enable: true
+  force-dns-mapping: true
+  parse-pure-ip: false
+  override-destination: false
+  sniff:
+    HTTP: { ports: [80, 8080-8880], override-destination: true }
+    TLS: { ports: [443, 8443] }
+
+proxies:
+  - name: "DNS劫持"
+    type: dns
+
+# 分组
+proxy-groups:
+  # 主代理（总入口）
+  - { name: 🐱主代理, type: select, include-all: true, exclude-type: dns, exclude-filter: "剩余|流量|到期|套餐|官网|推广|重置|订阅|小时|建议|机场|Traffic|Expired" }
+
+  # FCM 推送
+  - { name: 🔔FCM, <<: *proxy }
+
+  # 直连与拦截功能组
+  - { name: 🏠全局直连, type: select, hidden: true, proxies: [DIRECT] }
+  - { name: 🚫拒绝连接, type: select, hidden: true, proxies: [REJECT] }
+  - { name: 🔇静默拒绝, type: select, hidden: true, proxies: [REJECT-DROP] }
+  - { name: ⏭️绕过连接, type: select, hidden: true, proxies: [PASS] }
+  - { name: 🧹广告拦截, type: select, proxies: [🚫拒绝连接, 🔇静默拒绝, ⏭️绕过连接] }
+  - { name: 🧯HttpDNS, type: select, proxies: [🚫拒绝连接, 🔇静默拒绝, ⏭️绕过连接] }
+  - { name: 🩹泄漏拦截, type: select, proxies: [🚫拒绝连接, 🔇静默拒绝, ⏭️绕过连接] }
+  - { name: 🌐全球直连, type: select, proxies: [🏠全局直连] }
+
+  # 节点信息（load-balance 不可手选，纯展示）
+  - { name: 🧾节点信息, type: load-balance, include-all: true, exclude-type: dns, filter: "剩余|流量|到期|套餐|官网|推广|重置|订阅|小时|建议|机场|Traffic|Expired", url: "https://www.gstatic.com/generate_204", interval: 86400, lazy: true }
+
+  # Email
+  - { name: 💌Email, <<: *proxy }
+
+  # 应用/网站分流
+  - { name: 🐦X, <<: *proxy }
+  - { name: 💮ChatGPT, <<: *proxy }
+  - { name: 🌌Grok, <<: *proxy }
+  - { name: 📸Instagram, <<: *proxy }
+  - { name: 🧵Threads, <<: *proxy }
+  - { name: 🎨Pixiv, <<: *proxy }
+  - { name: 🌈Google, <<: *proxy }
+  - { name: 🛩️Telegram, <<: *proxy }
+  - { name: ▶️YouTube, <<: *proxy }
+  - { name: ♬Spotify, <<: *proxy }
+  - { name: 🪩TikTok, <<: *proxy }
+  - { name: 🕹️Steam, <<: *proxy }
+  - { name: 🍑JMComic, <<: *proxy }
+  - { name: 💗PicACG, <<: *proxy }
+  - { name: 🌸PCL, <<: *proxy }
+  - { name: 🌷EhViewer, <<: *proxy }
+  - { name: 🎀DLsite, <<: *proxy }
+  - { name: 📺动画疯, <<: *proxy }
+
+# 规则
+rules:
+  - DST-PORT,53,DNS劫持
+
+  - PROCESS-NAME,com.vivo.email,💌Email
+  - SUB-RULE,(OR,((NETWORK,UDP),(NETWORK,TCP))),SUB-RULES
+  - MATCH,🐱主代理
+  - DOMAIN-SUFFIX,perfectlife.club,🌸PCL
+  - DOMAIN-SUFFIX,perfectlife.cc,🌸PCL
+  - DOMAIN,mtalk.google.com,DIRECT
+  - DOMAIN,mtalk4.google.com,DIRECT
+  - DOMAIN,mtalk-staging.google.com,DIRECT
+  - DOMAIN,mtalk-dev.google.com,DIRECT
+  - DOMAIN,alt1-mtalk.google.com,DIRECT
+  - DOMAIN,alt1-mtalk.google.com,DIRECT
+  - DOMAIN,alt2-mtalk.google.com,DIRECT
+  - DOMAIN,alt3-mtalk.google.com,DIRECT
+  - DOMAIN,alt4-mtalk.google.com,DIRECT
+  - DOMAIN,alt5-mtalk.google.com,DIRECT
+  - DOMAIN,alt6-mtalk.google.com,DIRECT
+  - DOMAIN,alt7-mtalk.google.com,DIRECT
+  - DOMAIN,alt8-mtalk.google.com,DIRECT
+sub-rules:
+  SUB-RULES:
+    # ① FCM 推送
+    - "RULE-SET,googlefcm_domain,🔔FCM"
+    - "RULE-SET,googlefcm_ip,🔔FCM,no-resolve"
+    - "DOMAIN-SUFFIX,mtalk.google.com,🔔FCM"
+    - "DOMAIN-SUFFIX,mtalk4.google.com,🔔FCM"
+    - "DOMAIN-SUFFIX,mtalk-staging.google.com,🔔FCM"
+    - "DOMAIN-SUFFIX,mtalk-dev.google.com,🔔FCM"
+    - "DOMAIN-SUFFIX,alt1-mtalk.google.com,🔔FCM"
+    - "DOMAIN-SUFFIX,alt2-mtalk.google.com,🔔FCM"
+    - "DOMAIN-SUFFIX,alt3-mtalk.google.com,🔔FCM"
+    - "DOMAIN-SUFFIX,alt4-mtalk.google.com,🔔FCM"
+    - "DOMAIN-SUFFIX,alt5-mtalk.google.com,🔔FCM"
+    - "DOMAIN-SUFFIX,alt6-mtalk.google.com,🔔FCM"
+    - "DOMAIN-SUFFIX,alt7-mtalk.google.com,🔔FCM"
+    - "DOMAIN-SUFFIX,alt8-mtalk.google.com,🔔FCM"
+    # ② Google 相关服务
+    - "RULE-SET,google_domain,🌈Google"
+    - "DOMAIN-SUFFIX,googleapis.cn,🌐全球直连"
+    - "DOMAIN-SUFFIX,gstatic.com,🌈Google"
+    - "DOMAIN-SUFFIX,ggpht.com,🌈Google"
+    - "DOMAIN-KEYWORD,google,🌈Google"
+    - "RULE-SET,google_ip,🌈Google,no-resolve"
+
+    # ③ Email 域名
+    - "OR,((DOMAIN-KEYWORD,gmail),(DOMAIN-KEYWORD,outlook),(DOMAIN-KEYWORD,office365),(DOMAIN-SUFFIX,proton.me),(DOMAIN-SUFFIX,protonmail.com),(DOMAIN-SUFFIX,icloud.com),(DOMAIN-SUFFIX,me.com),(DOMAIN-SUFFIX,mac.com),(DOMAIN-KEYWORD,yahoo),(DOMAIN-SUFFIX,aol.com),(DOMAIN-SUFFIX,hotmail.com),(DOMAIN-SUFFIX,live.com),(DOMAIN-SUFFIX,msn.com),(DOMAIN-SUFFIX,gmx.com),(DOMAIN-SUFFIX,gmx.net),(DOMAIN-SUFFIX,web.de),(DOMAIN-SUFFIX,mail.com),(DOMAIN-SUFFIX,mail.ru),(DOMAIN-SUFFIX,yandex.com),(DOMAIN-SUFFIX,yandex.ru),(DOMAIN-SUFFIX,zoho.com),(DOMAIN-SUFFIX,fastmail.com),(DOMAIN-SUFFIX,tuta.com),(DOMAIN-SUFFIX,tutanota.com)),💌Email"
+    # 国际常见广告
+    - RULE-SET,category-ads-all_domain,🧹广告拦截
+    - OR,((RULE-SET,blockhttpdns_domain),(RULE-SET,blockhttpdns_ip,no-resolve)),🧯HttpDNS
+    - OR,((AND,((NETWORK,TCP),(DST-PORT,5349))),(AND,((NETWORK,UDP),(DST-PORT,5350-5351))),(AND,((NETWORK,UDP),(DST-PORT,19302-19305))),(AND,((NETWORK,UDP),(DST-PORT,19308-19309))),(RULE-SET,stun_domain),(DST-PORT,3478)),🩹泄漏拦截
+    - DOMAIN-KEYWORD,stun,🩹泄漏拦截
+    # 国际服务（域名）
+    - RULE-SET,youtube_domain,▶️YouTube
+    - RULE-SET,spotify_domain,♬Spotify
+    - OR,((RULE-SET,telegram_domain),(DOMAIN-KEYWORD,nicegram)),🛩️Telegram
+    - OR,((RULE-SET,twitter_domain),(DOMAIN-KEYWORD,twitter)),🐦X
+    - OR,((RULE-SET,instagram_domain),(DOMAIN-KEYWORD,instagram)),📸Instagram
+    - RULE-SET,threads_domain,🧵Threads
+    - RULE-SET,pixiv_domain,🎨Pixiv
+    - OR,((RULE-SET,steam_domain),(DOMAIN-KEYWORD,steambroadcast),(DOMAIN-KEYWORD,steamstore),(DOMAIN-KEYWORD,steamuserimages)),🕹️Steam
+    - OR,((RULE-SET,tiktok_domain),(DOMAIN-KEYWORD,tiktok)),🪩TikTok
+    - RULE-SET,18comic_domain,🍑JMComic
+    - RULE-SET,picacg_domain,💗PicACG
+    - RULE-SET,ehentai_domain,🌷EhViewer
+    - RULE-SET,dlsite_domain,🎀DLsite
+    - RULE-SET,openai_domain,💮ChatGPT
+    - OR,((RULE-SET,xai_domain),(DOMAIN-SUFFIX,grok.com)),🌌Grok
+    - RULE-SET,bahamut_domain,📺动画疯
+    # 国际服务（IP）
+    - RULE-SET,spotify_ip,♬Spotify,no-resolve
+    - RULE-SET,telegram_ip,🛩️Telegram,no-resolve
+    - RULE-SET,twitter_ip,🐦X,no-resolve
+    - RULE-SET,youtube_ip,▶️YouTube,no-resolve
+    # 兜底：国内/私有直连
+    - OR,((AND,((RULE-SET,cn_domain),(RULE-SET,cn_ip))),(RULE-SET,cn_ip,no-resolve),(RULE-SET,private_ip,no-resolve),(RULE-SET,private_domain)),🌐全球直连
+
+# 规则集
+rule-providers:
+  category-ads-all_domain:
+    <<: *domain_mrs
+    url: "https://cdn.jsdmirror.com/gh/MetaCubeX/meta-rules-dat@meta/geo/geosite/category-ads-all.mrs"
+    path: ./ruleset/Category_AdsAll_Domain.mrs
+  blockhttpdns_domain:
+    <<: *domain_mrs
+    url: "https://cdn.jsdmirror.com/gh/peiyingyao/Rule-for-OCD@master/rule/Clash/BlockHttpDNS/BlockHttpDNS_OCD_Domain.mrs"
+    path: ./ruleset/Category_httpdns_Domain.mrs
+  blockhttpdns_ip:
+    <<: *ipcidr_mrs
+    url: "https://cdn.jsdmirror.com/gh/peiyingyao/Rule-for-OCD@master/rule/Clash/BlockHttpDNS/BlockHttpDNS_OCD_IP.mrs"
+    path: ./ruleset/Category_httpdns_IP.mrs
+  stun_domain:
+    <<: *domain_mrs
+    url: "https://cdn.jsdmirror.com/gh/Kwisma/rules@main/rules/mihomo/STUN/STUN_Domain.mrs"
+    path: ./ruleset/STUN_Domain.mrs
+  cn_domain:
+    <<: *domain_mrs
+    url: "https://cdn.jsdmirror.com/gh/Kwisma/clash-rules@release/direct.mrs"
+    path: ./ruleset/CN_Domain.mrs
+  cn_ip:
+    <<: *ipcidr_mrs
+    url: "https://cdn.jsdmirror.com/gh/Kwisma/clash-rules@release/cncidr.mrs"
+    path: ./ruleset/CN_IP.mrs
+  private_domain:
+    <<: *domain_mrs
+    url: "https://cdn.jsdmirror.com/gh/MetaCubeX/meta-rules-dat@meta/geo/geosite/private.mrs"
+    path: ./ruleset/Private_Domain.mrs
+  private_ip:
+    <<: *ipcidr_mrs
+    url: "https://cdn.jsdmirror.com/gh/MetaCubeX/meta-rules-dat@meta/geo/geoip/private.mrs"
+    path: ./ruleset/Private_IP.mrs
+  youtube_domain:
+    <<: *domain_mrs
+    url: "https://cdn.jsdmirror.com/gh/peiyingyao/Rule-for-OCD@master/rule/Clash/YouTube/YouTube_OCD_Domain.mrs"
+    path: ./ruleset/YouTube_Domain.mrs
+  youtube_ip:
+    <<: *ipcidr_mrs
+    url: "https://cdn.jsdmirror.com/gh/peiyingyao/Rule-for-OCD@master/rule/Clash/YouTube/YouTube_OCD_IP.mrs"
+    path: ./ruleset/YouTube_IP.mrs
+  spotify_domain:
+    <<: *domain_mrs
+    url: "https://cdn.jsdmirror.com/gh/peiyingyao/Rule-for-OCD@master/rule/Clash/Spotify/Spotify_OCD_Domain.mrs"
+    path: ./ruleset/Spotify_Domain.mrs
+  spotify_ip:
+    <<: *ipcidr_mrs
+    url: "https://cdn.jsdmirror.com/gh/peiyingyao/Rule-for-OCD@master/rule/Clash/Spotify/Spotify_OCD_IP.mrs"
+    path: ./ruleset/Spotify_IP.mrs
+  telegram_domain:
+    <<: *domain_mrs
+    url: "https://cdn.jsdmirror.com/gh/MetaCubeX/meta-rules-dat@meta/geo/geosite/telegram.mrs"
+    path: ./ruleset/Telegram_Domain.mrs
+  telegram_ip:
+    <<: *ipcidr_mrs
+    url: "https://cdn.jsdmirror.com/gh/MetaCubeX/meta-rules-dat@meta/geo/geoip/telegram.mrs"
+    path: ./ruleset/Telegram_IP.mrs
+  twitter_domain:
+    <<: *domain_mrs
+    url: "https://cdn.jsdmirror.com/gh/MetaCubeX/meta-rules-dat@meta/geo/geosite/twitter.mrs"
+    path: ./ruleset/Twitter_Domain.mrs
+  twitter_ip:
+    <<: *ipcidr_mrs
+    url: "https://cdn.jsdmirror.com/gh/MetaCubeX/meta-rules-dat@meta/geo/geoip/twitter.mrs"
+    path: ./ruleset/Twitter_IP.mrs
+  instagram_domain:
+    <<: *domain_mrs
+    url: "https://cdn.jsdmirror.com/gh/peiyingyao/Rule-for-OCD@master/rule/Clash/Instagram/Instagram_OCD_Domain.mrs"
+    path: ./ruleset/Instagram_Domain.mrs
+  threads_domain:
+    <<: *domain_mrs
+    url: "https://cdn.jsdmirror.com/gh/MetaCubeX/meta-rules-dat@meta/geo/geosite/threads.mrs"
+    path: ./ruleset/Threads_Domain.mrs
+  pixiv_domain:
+    <<: *domain_mrs
+    url: "https://cdn.jsdmirror.com/gh/peiyingyao/Rule-for-OCD@master/rule/Clash/Pixiv/Pixiv_OCD_Domain.mrs"
+    path: ./ruleset/Pixiv_Domain.mrs
+  google_domain:
+    <<: *domain_mrs
+    url: "https://cdn.jsdmirror.com/gh/MetaCubeX/meta-rules-dat@meta/geo/geosite/google.mrs"
+    path: ./ruleset/Google_Domain.mrs
+  google_ip:
+    <<: *ipcidr_mrs
+    url: "https://cdn.jsdmirror.com/gh/MetaCubeX/meta-rules-dat@meta/geo/geoip/google.mrs"
+    path: ./ruleset/Google_IP.mrs
+  steam_domain:
+    <<: *domain_mrs
+    url: "https://cdn.jsdmirror.com/gh/peiyingyao/Rule-for-OCD@master/rule/Clash/Steam/Steam_OCD_Domain.mrs"
+    path: ./ruleset/Steam_Domain.mrs
+  googlefcm_domain:
+    <<: *domain_mrs
+    url: "https://cdn.jsdmirror.com/gh/peiyingyao/Rule-for-OCD@master/rule/Clash/GoogleFCM/GoogleFCM_OCD_Domain.mrs"
+    path: ./ruleset/GoogleFCM_Domain.mrs
+  googlefcm_ip:
+    <<: *ipcidr_mrs
+    url: "https://cdn.jsdmirror.com/gh/peiyingyao/Rule-for-OCD@master/rule/Clash/GoogleFCM/GoogleFCM_OCD_IP.mrs"
+    path: ./ruleset/GoogleFCM_IP.mrs
+  18comic_domain:
+    <<: *domain_mrs
+    url: "https://cdn.jsdmirror.com/gh/MetaCubeX/meta-rules-dat@meta/geo/geosite/18comic.mrs"
+    path: ./ruleset/18comic_Domain.mrs
+  picacg_domain:
+    <<: *domain_mrs
+    url: "https://cdn.jsdmirror.com/gh/MetaCubeX/meta-rules-dat@meta/geo/geosite/picacg.mrs"
+    path: ./ruleset/Picacg_Domain.mrs
+  ehentai_domain:
+    <<: *domain_mrs
+    url: "https://cdn.jsdmirror.com/gh/MetaCubeX/meta-rules-dat@meta/geo/geosite/ehentai.mrs"
+    path: ./ruleset/Ehentai_Domain.mrs
+  dlsite_domain:
+    <<: *domain_mrs
+    url: "https://cdn.jsdmirror.com/gh/MetaCubeX/meta-rules-dat@meta/geo/geosite/dlsite.mrs"
+    path: ./ruleset/Dlsite_Domain.mrs
+  bahamut_domain:
+    <<: *domain_mrs
+    url: "https://cdn.jsdmirror.com/gh/MetaCubeX/meta-rules-dat@meta/geo/geosite/bahamut.mrs"
+    path: ./ruleset/Bahamut_Domain.mrs
+  openai_domain:
+    <<: *domain_mrs
+    url: "https://cdn.jsdmirror.com/gh/MetaCubeX/meta-rules-dat@meta/geo/geosite/openai.mrs"
+    path: ./ruleset/Openai_Domain.mrs
+  xai_domain:
+    <<: *domain_mrs
+    url: "https://cdn.jsdmirror.com/gh/MetaCubeX/meta-rules-dat@meta/geo/geosite/xai.mrs"
+    path: ./ruleset/Xai_Domain.mrs
+  tiktok_domain:
+    <<: *domain_mrs
+    url: "https://cdn.jsdmirror.com/gh/Kwisma/rules@main/rules/mihomo/TikTok/TikTok_Domain.mrs"
+    path: ./ruleset/TikTok_Domain.mrs
